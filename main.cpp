@@ -1,5 +1,5 @@
 /*
-  Programme de contrôle d'un mobile (direction, vitesse, phares)
+  Programme de contrôle d'un mobile (direction, vitesse, feux)
   Vitesse sur le port UDP 175 (-255 <-> 255)
   Direction sur le port UDP 177 (-255 <-> 255)
 
@@ -12,8 +12,8 @@
 
 #include <Arduino.h>
 #include <ESP8266WiFi.h> // Bibliothèque à utiliser pour se connecter au WiFi
-#include<WiFiUdp.h>
-#include<Servo.h>
+#include <WiFiUdp.h>
+#include <Servo.h>
 #include <ESP8266mDNS.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266mDNS.h>
