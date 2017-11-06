@@ -10,23 +10,22 @@ Programme Arduino pour contrôler un mobile motorisé avec une ESP8266 (par le b
 On stocke la vitesse et la direction pour pouvoir les utiliser dans les méthodes de la classe.
     
 ### Variables de configuration
-    3. int mode = -1
-    4. int modeE = -1
-    5. int pins[10] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1}  
-    6. Servo servomoteur
+    3. int mode[2] = {-1, -1}
+    4. int pins[2][10] = {{-1,-1,-1,-1,-1,-1,-1,-1,-1,-1}, {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1}}  
+    5. Servo servomoteur
     
-- La variable "mode" stocke le mode de configuration imposé par l'interface de puissance (pont en H, servomoteur,...). La variable est à -1 s'il n'y a pas eu de configuration (pas d'appel de .config() ou de .configS()).
+- La variable "mode\[0]" stocke le mode de configuration imposé par l'interface de puissance (pont en H, servomoteur,...). La variable est à -1 s'il n'y a pas eu de configuration (pas d'appel de .config() ou de .configS()).
 
-- La variable "modeE" stocke le mode de configuration imposé par les pins des feux.  La variable est à -1 s'il n'y a pas eu de configuration (pas d'appel de .configE()).
+- La variable "mode\[1]" stocke le mode de configuration imposé par les pins des feux.  La variable est à -1 s'il n'y a pas eu de configuration (pas d'appel de .configE()).
 
-- Le tableau "pins" stocke le numéro de chaque broche utiliser pour contrôler les moteurs et les feux.
+- Le tableau "pins" stocke le numéro de chaque broche utilisée pour contrôler les moteurs (pins\[0]\[i]) et les feux (pins\[1]\[i]).
 
 - La variable "servomoteur" de type Servo est utiliser uniquement si l'on se sert d'un servomoteur pour assurer la direction.
     
 ### Variables de gestion des feux
-    7. bool autoOn = 0
-    8. int ClignoState = 0
-    9. int period = 1000
+    6. bool autoOn = 0
+    7. int ClignoState = 0
+    8. int period = 1000
     
 - La variable "autoOn" permet de choisir entre une gestion "automatique" des feux et le mode "manuel".
 
