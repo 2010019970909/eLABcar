@@ -1,5 +1,5 @@
 /*
-  Programme de contrôle d'un mobile (direction, vitesse, feux)
+  Programme de contrôle d'un mobile (direction, vitesse, phares)
   Vitesse sur le port UDP 175 (-255 <-> 255)
   Direction sur le port UDP 177 (-255 <-> 255)
 
@@ -15,17 +15,15 @@
 #include <WiFiUdp.h>
 #include <Servo.h>
 #include <ESP8266mDNS.h>
-#include <ESP8266WiFi.h>
-#include <ESP8266mDNS.h>
 #include <WiFiClient.h>
 
 class voiture {
   private:
     int vitesse = 0;  int direction = 0;
 
-    int mode = -1;  int modeE = -1;
+    int mode[2] = {-1, -1};
 
-    int pins[10] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};  Servo servomoteur;
+    int pins[2][10] = {{-1,-1,-1,-1,-1,-1,-1,-1,-1,-1}, {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1}};  Servo servomoteur;
 
     bool autoOn = 0;  int ClignoState = 0;  int period = 1000;
 
@@ -33,42 +31,66 @@ class voiture {
     /// Méthodes de configuration
     // Initialisation d'uniquement 2 moteurs (vitesse du second moteur optionnel)
     void config(int pinM1v, int pinM1d, int pinM2d, int pinM2v = -1) {
-      pinMode(pinM1v, OUTPUT); this->pins[0] = pinM1v;
-      pinMode(pinM1d, OUTPUT); this->pins[1] = pinM1d;
-      pinMode(pinM2d, OUTPUT); this->pins[2] = pinM2d;
+      pinMode(pinM1v, OUTPUT); this->pins[0][0] = pinM1v;
+      pinMode(pinM1d, OUTPUT); this->pins[0][1] = pinM1d;
+      pinMode(pinM2d, OUTPUT); this->pins[0][2] = pinM2d;
 
       if (pinM2v != -1) {
-        pinMode(pinM2v, 0);  this->pins[3] = pinM2v;
-        this->mode = 1; // 2 Moteurs, vitesses et direction pour les 2
+        pinMode(pinM2v, 0);  this->pins[0][3] = pinM2v;
+        this->mode[0] = 1; // 2 Moteurs, vitesses et direction pour les 2
       }
-      else  this->mode = 0; // 2 Moteurs, direction pour les 2
+      else  this->mode[0] = 0; // 2 Moteurs, direction pour les 2
+    };
+
+    // Initialisation d'uniquement 2 moteurs (vitesse du second moteur optionnel)
+    void config(int pinM1v, int pinM1d1, int pinM1d2, int pinM2d1, int pinM2d2, int pinM2v = -1) {
+      pinMode(pinM1v, OUTPUT); this->pins[0][0] = pinM1v;
+      pinMode(pinM1d1, OUTPUT); this->pins[0][1] = pinM1d1;
+      pinMode(pinM1d2, OUTPUT); this->pins[0][2] = pinM1d2;
+      pinMode(pinM2d1, OUTPUT); this->pins[0][3] = pinM2d1;
+      pinMode(pinM2d2, OUTPUT); this->pins[0][4] = pinM2d2;
+
+      if (pinM2v != -1) {
+        pinMode(pinM2v, 0);  this->pins[0][5] = pinM2v;
+        this->mode[0] = 4; // 2 Moteurs, vitesses et direction pour les 2
+      }
+      else  this->mode[0] = 3; // 2 Moteurs, direction pour les 2
     };
 
     // Initialisation moteur et servomoteur (pour la direction)
     void configS(int pinM1v, int pinM1d, int servo) {
-      pinMode(pinM1v, OUTPUT); this->pins[0] = pinM1v;
-      pinMode(pinM1d, OUTPUT); this->pins[1] = pinM1d;
+      pinMode(pinM1v, OUTPUT); this->pins[0][0] = pinM1v;
+      pinMode(pinM1d, OUTPUT); this->pins[0][1] = pinM1d;
       servomoteur.attach(servo);
-      this->mode = 2; // Un moteur + un servomoteur;
+      this->mode[0] = 2; // Un moteur + un servomoteur;
+    };
+
+    // Initialisation moteur et servomoteur (pour la direction)
+    void configS(int pinM1v, int pinM1d1, int pinM1d2, int servo) {
+      pinMode(pinM1v, OUTPUT); this->pins[0][0] = pinM1v;
+      pinMode(pinM1d1, OUTPUT); this->pins[0][1] = pinM1d1;
+      pinMode(pinM1d2, OUTPUT); this->pins[0][2] = pinM1d2;
+      servomoteur.attach(servo);
+      this->mode[0] = 5; // Un moteur + un servomoteur;
     };
 
     // Initialisation des feux de signialisation
     void configE(int pinFAv, int pinFAr = -1 , int pinFDD = -1, int pinFDG = -1)  { // Feux avant
-      pinMode(pinFAv, OUTPUT); this->pins[5] = pinFAv;
-      this->modeE = 0;
+      pinMode(pinFAv, OUTPUT); this->pins[1][0] = pinFAv;
+      this->mode[1] = 0;
       if (pinFAr != -1) {
-        pinMode(pinFAr, OUTPUT); this->pins[6] = pinFAr;
-        this->modeE = 1;
+        pinMode(pinFAr, OUTPUT); this->pins[1][1] = pinFAr;
+        this->mode[1] = 1;
         if (pinFDD != -1 && pinFDG != -1 ) {
-          pinMode(pinFDD, OUTPUT); this->pins[7] = pinFDD;
-          pinMode(pinFDG, OUTPUT); this->pins[8] = pinFDG;
-          this->modeE = 2;
+          pinMode(pinFDD, OUTPUT); this->pins[1][2] = pinFDD;
+          pinMode(pinFDG, OUTPUT); this->pins[1][3] = pinFDG;
+          this->mode[1] = 2;
         }
       }
     };
 
     // Activer l'automatisation de l'allumage des feux
-    void setAutoOn(bool etat = 1) { // Feux en mode automatique
+    void setAutoOn(bool etat = true) { // Feux en mode automatique
       this->autoOn = etat;
     };
 
@@ -88,59 +110,80 @@ class voiture {
       Serial.println("\ndir1 : " + (String) dir1);
       Serial.println("\ndir2 : " + (String) dir2);
 */
-      switch (this->mode) {
+      switch (this->mode[0]) {
         case 0: // 2 Moteurs, direction pour les 2
-          analogWrite(this->pins[0], vit1); // 0->255
-          digitalWrite(this->pins[1], dir1); // 0/1
-          digitalWrite(this->pins[2], dir2); // 0/1
+          analogWrite(this->pins[0][0], vit1); // 0->255
+          digitalWrite(this->pins[0][1], dir1); // 0/1
+          digitalWrite(this->pins[0][2], dir2); // 0/1
           break;
 
         case 1: // 2 Moteurs, vitesses et direction pour les 2
-          analogWrite(this->pins[0], vit1); // 0->255
-          digitalWrite(this->pins[1], dir1); // 0/1
-          analogWrite(this->pins[2], vit2); // 0->255
-          digitalWrite(this->pins[3], dir2); // 0/1
+          analogWrite(this->pins[0][0], vit1); // 0->255
+          digitalWrite(this->pins[0][1], dir1); // 0/1
+          analogWrite(this->pins[0][2], vit2); // 0->255
+          digitalWrite(this->pins[0][3], dir2); // 0/1
           break;
 
         case 2:
-          int angle; angle = 90 + constrain(dir, -90, 90);
-          analogWrite(this->pins[0], vit1); // 0->255
-          digitalWrite(this->pins[1], dir1); // 0/1
-          servomoteur.write(angle); // 0->180
+          analogWrite(this->pins[0][0], vit1); // 0->255
+          digitalWrite(this->pins[0][1], dir1); // 0/1
+          servomoteur.write(90 + constrain(dir2, -90, 90)); // 0->180
           break;
+
+      case 3:
+        analogWrite(this->pins[0][0], vit1);   // 0->255
+        digitalWrite(this->pins[0][1], dir1);  // 0/1
+        digitalWrite(this->pins[0][2], !dir1);  // 0/1
+        analogWrite(this->pins[0][3], vit2);   // 0->255
+        digitalWrite(this->pins[0][4], dir2);  // 0/1
+        digitalWrite(this->pins[0][5], ! dir2);  // 0/1
+        break;
+
+      case 4:
+        analogWrite(this->pins[0][0], vit1);   // 0->255
+        digitalWrite(this->pins[0][1], dir1);  // 0/1
+        analogWrite(this->pins[0][2], vit2);   // 0->255
+        digitalWrite(this->pins[0][3], dir2);  // 0/1
+        break;
+
+      case 5:
+        analogWrite(this->pins[0][0], vit1); // 0->255
+        digitalWrite(this->pins[0][1], dir1); // 0/1
+        servomoteur.write(90 + constrain(dir, -90, 90)); // 0->180
+        break;
 
         default:
           Serial.println("Erreur (mode inconnu)");
           break;
       }
 
-          //  Serial.println(this->modeE);
+          //  Serial.println(this->mode[1]);
           //  Serial.println(this->autoOn);
-      switch (this->modeE) {
+      switch (this->mode[1]) {
         case 0: // Feux avant
           if (this->autoOn)  {
-            if (dir1) digitalWrite(this->pins[5], 1);
-            else  digitalWrite(this->pins[5], 0);
+            if (dir1) digitalWrite(this->pins[1][0], 1);
+            else  digitalWrite(this->pins[1][0], 0);
           }
           // Serial.println("a");
           break;
 
         case 1: // + Feux arrière
           if (this->autoOn)  {
-            if (dir1) digitalWrite(this->pins[5], 1);
-            else  digitalWrite(this->pins[5], 0);
-            if (!dir1) digitalWrite(this->pins[6], 1);
-            else  digitalWrite(this->pins[6], 0);
+            if (dir1) digitalWrite(this->pins[1][0], 1);
+            else  digitalWrite(this->pins[1][0], 0);
+            if (!dir1) digitalWrite(this->pins[1][1], 1);
+            else  digitalWrite(this->pins[1][1], 0);
           }
           // Serial.println("b");
           break;
 
         case 2: // + Feux de direction
           if (this->autoOn)  {
-            if (dir1) digitalWrite(this->pins[5], 1);
-            else  digitalWrite(this->pins[5], 0);
-            if (!dir1) digitalWrite(this->pins[6], 1);
-            else  digitalWrite(this->pins[6], 0);
+            if (dir1) digitalWrite(this->pins[1][0], 1);
+            else  digitalWrite(this->pins[1][0], 0);
+            if (!dir1) digitalWrite(this->pins[1][1], 1);
+            else  digitalWrite(this->pins[1][1], 0);
             if (vit1 == 0 || vit2 == 0) {
               if (dir2)  this->ClignoState = 1;
               else this->ClignoState = 2;
@@ -168,10 +211,10 @@ class voiture {
 
     /// Fonctions de contrôle des feux
     void FeuxAvant(bool etat = 1) {
-      if (this->modeE > -1)  digitalWrite(this->pins[5], etat);
+      if (this->mode[1] > -1)  digitalWrite(this->pins[1][0], etat);
     }; // Allumer les feux avant
     void FeuxArriere(bool etat = 1) {
-      if (this->modeE > 0) digitalWrite(this->pins[6], etat);
+      if (this->mode[1] > 0) digitalWrite(this->pins[1][1], etat);
     }; // Allumer les feux arrière
 
     void Cligno(int state = 4)  { // Allumer les feux directionnel
@@ -180,36 +223,36 @@ class voiture {
       Serial.println(this->ClignoState);*/
       static unsigned long d = millis();
 
-      if (this->modeE > 1) {
+      if (this->mode[1] > 1) {
 
         switch (state) {
           case 0: // Éteint
-            digitalWrite(this->pins[7], 0); digitalWrite(this->pins[8], 0);
+            digitalWrite(this->pins[1][2], 0); digitalWrite(this->pins[1][3], 0);
             d = millis(); this->ClignoState = 0;
             break;
 
           case 1: // Droite
             if (d < millis() - this->period) {
-              digitalWrite(this->pins[7], !digitalRead(this->pins[7]));
+              digitalWrite(this->pins[1][2], !digitalRead(this->pins[1][3]));
               d = millis();
             }
 
-            digitalWrite(pins[8], 0); this->ClignoState = 1;
+            digitalWrite(this->pins[1][3], 0); this->ClignoState = 1;
             break;
 
           case 2: // Gauche
             if (d < millis() - this->period) {
-              digitalWrite(this->pins[8], !digitalRead(this->pins[8]));
+              digitalWrite(this->pins[1][3], !digitalRead(this->pins[1][3]));
               d = millis();
             }
 
-            digitalWrite(this->pins[7], 0); this->ClignoState = 2;
+            digitalWrite(this->pins[1][2], 0); this->ClignoState = 2;
             break;
 
           case 3: // Feux de détresse
             if (d < millis() - this->period) {
-              digitalWrite(this->pins[7], !digitalRead(this->pins[7]));
-              digitalWrite(this->pins[8], digitalRead(this->pins[7]));
+              digitalWrite(this->pins[1][2], !digitalRead(this->pins[1][2]));
+              digitalWrite(this->pins[1][3], digitalRead(this->pins[1][2]));
               d = millis();
             }
             this->ClignoState = 3;
@@ -221,11 +264,11 @@ class voiture {
     };
 
     void dimFAv(int intensite) {
-      analogWrite(this->pins[5], intensite);
+      analogWrite(this->pins[1][0], intensite);
     };
 
     void dimFAr(int intensite) {
-      analogWrite(this->pins[6], intensite);
+      analogWrite(this->pins[1][1], intensite);
     };
 
     /// Accesseurs de la classe
@@ -257,11 +300,12 @@ class voiture {
     /// Fonction de test
     void test() {
       Serial.println("");
-      for(int i = 0; i < 10; i++) Serial.println(this->pins[i]);
+      for(int i = 0; i < 10; i++) Serial.println(this->pins[0][i]);
+      for(int i = 0; i < 10; i++) Serial.println(this->pins[1][i]);
 
-      Serial.println("\nMode et ModeE");
-      Serial.println(this->mode);
-      Serial.println(this->modeE);
+      Serial.println("\nModes :");
+      Serial.println(this->mode[0]);
+      Serial.println(this->mode[1]);
     };
 };
 
